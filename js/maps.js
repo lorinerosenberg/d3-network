@@ -1,91 +1,144 @@
-var data = {
-    "name": "Game of Thrones",
-    "children": [{
-        "name": "will the north get overrun with the dead? (meaning that the 'final battle' will be closer to king's landing)",
-        "children": [{
-            "name": "No, they will be stopped a bit after conquering Winterfell"
-        }]
-    }, {
-        "name": "Will the Zombi dragon die?",
-        "children": [{
-            "name": "I believe the night king will ultimately die, and so will his dragon.",
-            "children": [{
-                "name": "Viserion is already dead."
-            }]
-        }]
-    }, {
-        "name": "Are the white walkers a metaphor for global warming?",
-        "children": [{
-            "name": "Yes, and melting down the icebergs, delivering a climate disaster maybe forever ('the long night') really drives this point home.."
-        }]
-    }, {
-        "name": "Do you think a white walker dragon will spit ice?",
-        "children": [{
-            "name": "Although it wasn't clear, the dragon probably spit fire (although a blue on) as the wall melted away."
-        }, {
-            "name": "Yes. In an 1980 short novel by George R.R Martin called 'The ice dragon', An Ice Dragon fights other dragons, breathing ice. "
-        }]
-    }, {
-        "name": "Will the 'Wall' collapse by the White walkers?",
-        "children": [{
-            "name" : "The walkers will pass the wall without collapsing it",
-            "children" : [{
-                "name" : "In season 7 the change in the opening video is to put ice instead of sea at the wall side. This should suggest a possibility to pass the wall without shattering it"
-            }]
-        },
-            {
-                "name" : "The Wall is a sort of Chekhov's gun. The ultimate, unreal defence against what ever lies to the north. While the white walkers may find other means of crossing it, shuttering the wall would be too much of a visual treat to be skipped over by the show runners.",
-                "children": [{
-                    "name": "There is a legend of a giant's horn who can bring the wall down. Mans Raidar was looking for it in the Frost Fingers and failed finding it. It is possible that the night king found it and will use it "
-                }]
-            }]
-    }]
-};
+var margin = {top: 20, right: 120, bottom: 20, left: 120},
+    width = 2000 - margin.right - margin.left,
+    height = 800 - margin.top - margin.bottom;
 
-// Get main SVG element and width + height attributes
-var svg = d3.select("svg"),
-    width = +svg.attr("width"),
-    height = +svg.attr("height"),
-    g = svg.append("g").attr("transform", "translate(40,0)");
+var i = 0,
+    duration = 750,
+    root;
 
-// Convert data for a tree layout
-var root = d3.hierarchy(data)
-var tree = d3.tree()
-    .size([height, width - 160]);
-tree(root);
+var tree = d3.layout.tree()
+    .size([height, width]);
 
-// Create links
-var link = g.selectAll(".link")
-    .data(root.descendants().slice(1))
-    .enter().append("path")
-    .attr("class", "link")
-    .attr("d", function(d) {
-        return "M" + d.y + "," + d.x + "C" + (d.y + d.parent.y) / 2 + "," + d.x + " " + (d.y + d.parent.y) / 2 + "," + d.parent.x + " " + d.parent.y + "," + d.parent.x;
-    });
+var diagonal = d3.svg.diagonal()
+    .projection(function(d) { return [d.y, d.x]; });
 
-// Create nodes
-var node = g.selectAll(".node")
-    .data(root.descendants())
-    .enter()
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.right + margin.left)
+    .attr("height", height + margin.top + margin.bottom)
     .append("g")
-    .attr("class", function(d) {
-        return "node" + (d.children ? " node--internal" : " node--leaf");
-    })
-    .attr("transform", function(d) {
-        return "translate(" + d.y + "," + d.x + ")";
-    })
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-node.append("circle")
-    .attr("r", 2.5);
+d3.json("treeData.json", function(error, treeData) {
+    if (error) throw error;
 
-node.append("text")
-    .attr("dy", 3)
-    .attr("x", function(d) {
-        return d.children ? -10 : 10;
-    })
-    .style("text-anchor", function(d) {
-        return d.children ? "end" : "start";
-    })
-    .text(function(d) {
-        return d.data.name
+    root = treeData;
+    root.x0 = height / 2;
+    root.y0 = 0;
+
+    function collapse(d) {
+        if (d.children) {
+            d._children = d.children;
+            d._children.forEach(collapse);
+            d.children = null;
+        }
+    }
+
+    root.children.forEach(collapse);
+    update(root);
+});
+
+d3.select(self.frameElement).style("height", "800px");
+
+
+
+function update(source) {
+
+    // Compute the new tree layout.
+    var nodes = tree.nodes(root).reverse(),
+        links = tree.links(nodes);
+
+    // Normalize for fixed-depth.
+    nodes.forEach(function(d) { d.y = d.depth * 180; });
+
+    // Update the nodes…
+    var node = svg.selectAll("g.node")
+        .data(nodes, function(d) { return d.id || (d.id = ++i); });
+
+    // Enter any new nodes at the parent's previous position.
+    var nodeEnter = node.enter().append("g")
+        .attr("class", "node")
+        .attr("transform", function(d) { return "translate(" + source.y0 + "," + source.x0 + ")"; })
+        .on("click", click);
+
+    nodeEnter.append("circle")
+        .attr("r", 1e-6)
+        .style("fill", function(d) { return d._children ? "#c9c9c9" : "#fff"; })
+        .attr("class", function(d) { return d.class; });
+
+
+    nodeEnter.append("text")
+        .attr("x", function(d) { return d.children || d._children ? -80 : 10; })
+        .attr("dy", ".35em")
+        .text(function(d) { return d.name; })
+        .style("fill-opacity", 1e-6);
+
+
+    // Transition nodes to their new position.
+    var nodeUpdate = node.transition()
+        .duration(duration)
+        .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
+
+    nodeUpdate.select("circle")
+        .attr("r", 40)
+        .style("fill", function(d) { return d._children ? "#c9c9c9" : "#fff"; });
+
+    nodeUpdate.select("text")
+        .style("fill-opacity", 1);
+
+    // Transition exiting nodes to the parent's new position.
+    var nodeExit = node.exit().transition()
+        .duration(duration)
+        .attr("transform", function(d) { return "translate(" + source.y + "," + source.x + ")"; })
+        .remove();
+
+    nodeExit.select("circle")
+        .attr("r", 1e-6);
+
+    nodeExit.select("text")
+        .style("fill-opacity", 1e-6);
+
+    // Update the links…
+    var link = svg.selectAll("path.link")
+        .data(links, function(d) { return d.target.id; });
+
+    // Enter any new links at the parent's previous position.
+    link.enter().insert("path", "g")
+        .attr("class", "link")
+        .attr("d", function(d) {
+            var o = {x: source.x0, y: source.y0};
+            return diagonal({source: o, target: o});
+        });
+
+    // Transition links to their new position.
+    link.transition()
+        .duration(duration)
+        .attr("d", diagonal);
+
+    // Transition exiting nodes to the parent's new position.
+    link.exit().transition()
+        .duration(duration)
+        .attr("d", function(d) {
+            var o = {x: source.x, y: source.y};
+            return diagonal({source: o, target: o});
+        })
+        .remove();
+
+    // Stash the old positions for transition.
+    nodes.forEach(function(d) {
+        d.x0 = d.x;
+        d.y0 = d.y;
     });
+}
+
+
+// Toggle children on click.
+function click(d) {
+    if (d.children) {
+        d._children = d.children;
+        d.children = null;
+    } else {
+        d.children = d._children;
+        d._children = null;
+    }
+    update(d);
+}     

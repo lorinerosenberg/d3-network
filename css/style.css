@@ -1,22 +1,24 @@
-.node circle {
-    fill: #999;
+.node {
+    cursor: pointer;
 }
 
+.node circle {
+    stroke: gray;
+    stroke-width: 1.5px;
+}
+
+.node circle.supporting{
+    stroke: #3b90f1;
+}
+.node circle.disproving{
+    stroke: red;
+}
 .node text {
     font: 10px sans-serif;
 }
 
-.node--internal circle {
-    fill: #555;
-}
-
-.node--internal text {
-    text-shadow: 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff;
-}
-
 .link {
     fill: none;
-    stroke: #555;
-    stroke-opacity: 0.4;
+    stroke: #ccc;
     stroke-width: 1.5px;
 }
